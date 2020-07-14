@@ -51,21 +51,17 @@ func main() {
 	}
 }
 
-func listenForChangesOn(url string, weebhookUri string) {
+func listenForChangesOn(url string, weebHookUrl string) {
 	done := make(chan bool)
 
 	log.Printf("Start observing page: %s.", url)
 
 	go func() {
 		for {
-			if !checkPageForChanges(url) {
+			if !checkPageForChanges(url, weebHookUrl) {
 				time.Sleep(10 * time.Second)
 				continue
 			}
-			_ = SendSlackNotification(
-				weebhookUri,
-				fmt.Sprintf("Page under %s has changed!", url),
-				"")
 			done <- true
 		}
 	}()
@@ -74,7 +70,7 @@ func listenForChangesOn(url string, weebhookUri string) {
 	log.Printf("Listening for changes on %s stopped.", url)
 }
 
-func checkPageForChanges(url string) bool {
+func checkPageForChanges(url string, weebhookUrl string) bool {
 	h := md5.New()
 	log.Println("Request sent")
 	response, err := http.Get(url)
@@ -83,6 +79,10 @@ func checkPageForChanges(url string) bool {
 		return false
 	}
 	bodyBytes, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("Not possible to read body with error: %s", err)
+		return false
+	}
 	h.Write(bodyBytes)
 	md5Hash := hex.EncodeToString(h.Sum(nil))
 	if lastHash == "" {
@@ -96,5 +96,9 @@ func checkPageForChanges(url string) bool {
 	log.Printf("Last hash: %s", lastHash)
 	log.Printf("Side hash: %s", md5Hash)
 	log.Println("Send slack notification and finish.")
+	_ = SendSlackNotification(
+		weebhookUrl,
+		fmt.Sprintf("Page under %s has changed!", url),
+		"")
 	return true
 }
