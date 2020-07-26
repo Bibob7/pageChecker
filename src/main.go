@@ -1,18 +1,15 @@
 package main
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
 	"github.com/urfave/cli/v2"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
-
-var lastHash = ""
 
 func main() {
 	app := &cli.App{
@@ -71,7 +68,6 @@ func listenForChangesOn(url string, weebHookUrl string) {
 }
 
 func checkPageForChanges(url string, weebhookUrl string) bool {
-	h := md5.New()
 	log.Println("Request sent")
 	response, err := http.Get(url)
 	if err != nil {
@@ -83,18 +79,11 @@ func checkPageForChanges(url string, weebhookUrl string) bool {
 		log.Printf("Not possible to read body with error: %s", err)
 		return false
 	}
-	h.Write(bodyBytes)
-	md5Hash := hex.EncodeToString(h.Sum(nil))
-	if lastHash == "" {
-		lastHash = md5Hash
-		return false
-	}
-	if md5Hash == lastHash {
+	body := string(bodyBytes)
+	if strings.Contains(body, "Derzeit nicht verfügbar.") {
 		log.Println("No content changes yet.")
 		return false
 	}
-	log.Printf("Last hash: %s", lastHash)
-	log.Printf("Side hash: %s", md5Hash)
 	log.Println("Send slack notification and finish.")
 	_ = SendSlackNotification(
 		weebhookUrl,
